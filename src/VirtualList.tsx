@@ -15,7 +15,7 @@ import {
   bufferTime,
   filter,
 } from "rxjs/operators";
-import { getFirstIndex as indexOfLessOrEqual, getMaxIndex, DataItem, indexDiff } from "./util";
+import { indexOfLessOrEqual, getMaxIndex, DataItem, indexDiff } from "./util";
 import { Resize } from "./Resize";
 
 interface VirtualListOptions {

@@ -12,7 +12,7 @@ export const getRandomHeight = (t = 50) => {
     return IDLE_ITEM_HEIGHT + eps;
 }
 
-export const getFirstIndex = (top: number, tops: number[]) => {
+export const indexOfLessOrEqual = (top: number, tops: number[]) => {
     let res = 0, L = 0, R = tops.length - 1;
     while (L < R) {
         const M = (L + R) >> 1;
