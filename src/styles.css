@@ -5,3 +5,38 @@
 * {
   box-sizing: border-box;
 }
+
+.container {
+    width: 70vw;
+    height: 80vh;
+    border: 1px solid #eee;
+    margin: 10vh auto;
+}
+
+.list-item {
+  padding: 20px;
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: stretch;
+  border-bottom: 1px solid #e8e8e8;
+  overflow: hidden;
+}
+
+.list-item-header {
+  margin-bottom: 5px;
+  background: #eee;
+  padding: 5px;
+}
+
+.visual-list-marker {
+  position: absolute;
+  height: 1px;
+  width: 100%;
+  will-change: transform;
+}
+
+.visual-list-item {
+  position: absolute;
+  width: 100%;
+  will-change: transform, contents;
+}

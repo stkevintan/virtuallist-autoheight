@@ -39,7 +39,7 @@ const style: React.CSSProperties = {
   position: "relative",
   height: "100%",
   width: "100%",
-  overflow: "hidden overlay",
+  overflow: "hidden auto",
   transform: "translateY(0px)",
   contain: "strict"
 };
@@ -58,14 +58,14 @@ export class VirtualList extends React.Component<
     scrollHeight: 0
   };
 
-  private readonly defaultPreload = 5;
+  private readonly defaultPreload = 3;
   private virtualListRef = React.createRef<HTMLDivElement>();
   private containerHeight$ = new BehaviorSubject<number>(0);
   private sub = new Subscription();
   private dataSlice: (DataItem | null)[] = [];
 
   private rowTops$ = new BehaviorSubject<number[]>([]);
-  private resize$ = new Subject<[number, number]>()
+  private resizeCall$ = new Subject<[number, number]>()
 
   componentDidMount() {
     const container = this.virtualListRef.current as HTMLElement;
@@ -172,8 +172,8 @@ export class VirtualList extends React.Component<
       }),
     );
 
-    this.sub.add(this.resize$.pipe(
-      bufferTime(500),
+    this.sub.add(this.resizeCall$.pipe(
+      bufferTime(200),
       filter(calls => calls.length > 0),
       map(calls => calls.sort((x, y) => x[0] - y[0])),
       withLatestFrom(this.rowTops$),
@@ -201,6 +201,11 @@ export class VirtualList extends React.Component<
     );
   }
 
+  componentWillUnmount() {
+    this.sub.unsubscribe();
+  }
+  
+
 
 
   private onContainerResize = (rect: DOMRect) => {
@@ -208,7 +213,7 @@ export class VirtualList extends React.Component<
   }
 
   private onItemResize = (rect: DOMRect, index: number) => {
-    this.resize$.next([index, rect.height]);
+    this.resizeCall$.next([index, rect.height]);
   }
 
   render() {
@@ -216,24 +221,20 @@ export class VirtualList extends React.Component<
       <Resize onResize={this.onContainerResize}>
         <div ref={this.virtualListRef} style={style}>
           <div
+            className="visual-list-marker"
             style={{
-              position: "absolute",
-              height: "1px",
-              width: "100%",
               transform: `translate(0px, ${this.state.scrollHeight}px)`
             }}
           />
           {this.state.data.map((item, i) => item && (
             <div
               key={i}
+              className="visual-list-item"
               style={{
-                position: "absolute",
-                width: "100%",
-                willChange: 'height',
                 transform: `translateY(${item.$pos}px)`,
               }}
             >
-              <Resize key={item.$index} onResize={rect => this.onItemResize(rect, item.$index)}>
+              <Resize onResize={rect => this.onItemResize(rect, item.$index)}>
                 {item.origin}
               </Resize>
             </div>

@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import ReactDOM from 'react-dom';
+// import ReactDOM from 'react-dom';
 
 declare var ResizeObserver: any;
 
@@ -61,7 +61,7 @@ export class Resize extends Component<IResizeProps, IResizeState> {
                     this.onResize(target.getBoundingClientRect());
                 });
             });
-            const elem = ReactDOM.findDOMNode(this);
+            const elem = this.wrapperRef.current;
             if (elem instanceof HTMLDivElement) {
                 this.resizeObserver.observe(elem);
             }
@@ -144,7 +144,7 @@ export class Resize extends Component<IResizeProps, IResizeState> {
 
     render() {
         if (supportResizeObserver) {
-            return React.Children.only(this.props.children);
+            return <div style={styles.container} ref={this.wrapperRef}>{this.props.children}</div>;
         }
         return (
             <div style={styles.container}>

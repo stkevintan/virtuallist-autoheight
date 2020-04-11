@@ -14,14 +14,7 @@ const options$ = of({ height: IDLE_ITEM_HEIGHT });
 function App() {
   return (
     <div className="App">
-      <div
-        style={{
-          width: "80vw",
-          height: '70vh',
-          border: "1px solid #eee",
-          margin: "10vh auto"
-        }}
-      >
+      <div className="container" >
         <VirtualList data$={data$} options$={options$} />
       </div>
     </div>

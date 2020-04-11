@@ -2,39 +2,54 @@ import * as React from 'react';
 import Editor from '@monaco-editor/react';
 import { LoremIpsum } from 'lorem-ipsum';
 
+const heightCache: Record<number, number> = {};
+
 const lorem = new LoremIpsum({
     sentencesPerParagraph: {
         max: 8,
         min: 4
     },
     wordsPerSentence: {
-        max: 16,
-        min: 4
+        max: 3,
+        min: 2
     }
 });
+
+
+const code = () => `
+// Demo here
+while(true) {
+    console.log('${lorem.generateSentences(1)}');
+}
+`.trim();
 
 export interface IListItemProps {
     index: number,
     height: number
 }
 
-
 export const ListItem: React.FC<IListItemProps> = ({ index, height: pHeight }) => {
-    const [height, setHeight] = React.useState(pHeight);
-    return (<div style={{
-        height: height,
-        padding: '20px',
-        display: 'flex',
-        flexFlow: 'column nowrap',
-        alignItems: 'stretch',
-        borderBottom: '1px solid #e8e8e8',
-        overflow: 'hidden'
-    }}>
-        <div style={{ marginBottom: 5 }}># Editor : {index}</div>
-        <label style={{ display: 'flex', marginBottom: 10 }}>
-            <span>Change the item height: </span>{' '}
-            <input value={height} onChange={e => setHeight(parseInt(e.target.value ?? 0, 10))} type="number" />
+    const [height, setHeight] = React.useState(heightCache[index] || pHeight);
+    const value = React.useMemo(() => code(), []);
+    return (<div style={{ height: height }} className="list-item">
+        <div className="list-item-header"># Editor : {index}</div>
+        <label style={{ display: 'flex',alignItems:'center', marginBottom: 10 }}>
+            <small>Change the row height: &nbsp;</small>
+            <input value={height} onChange={e => {
+                const height = parseInt(e.target.value ?? 0, 10);
+                heightCache[index] = height; 
+                setHeight(height);
+            }} type="number" />
         </label>
-        <Editor theme="dark" language="text" value={lorem.generateParagraphs(3)} />
+        <div style={{flex: '1 1 auto', overflow: 'hidden'}}>
+            <Editor 
+            theme="dark" 
+            language="typescript" 
+            value={value} 
+            options={{
+                minimap: { enabled: false },
+            }} 
+            />
+        </div>
     </div>)
 }
