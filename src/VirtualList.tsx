@@ -165,7 +165,7 @@ export class VirtualList extends React.Component<
     );
 
     this.sub.add(this.resizeCall$.pipe(
-      bufferTime(200),
+      bufferTime(500),
       filter(calls => calls.length > 0),
       map(calls => calls.sort((x, y) => x[0] - y[0])),
       withLatestFrom(this.rowTops$),
