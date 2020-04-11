@@ -4,38 +4,38 @@ import {
   fromEvent,
   BehaviorSubject,
   Subscription,
-  combineLatest
+  combineLatest,
+  Subject
 } from "rxjs";
 import {
   map,
-  tap,
   startWith,
-  filter,
   withLatestFrom,
-  pairwise
+  distinctUntilChanged,
+  bufferTime,
+  filter,
 } from "rxjs/operators";
+import { getFirstIndex as indexOfLessOrEqual, getMaxIndex, DataItem, indexDiff } from "./util";
+import { Resize } from "./Resize";
 
 interface VirtualListOptions {
   height: number;
+  preload?: number;
 }
 
-interface DataItem {
-  origin: React.ReactNode;
-  $pos: number;
-  $index: number;
-}
 
 interface VirtualListProps {
   data$: Observable<React.ReactNode[]>;
   options$: Observable<VirtualListOptions>;
+
 }
 
 interface VirtualListState {
-  data: DataItem[];
+  data: (DataItem | null)[];
   scrollHeight: number;
 }
 
-const styles: React.CSSProperties = {
+const style: React.CSSProperties = {
   position: "relative",
   height: "100%",
   width: "100%",
@@ -44,163 +44,202 @@ const styles: React.CSSProperties = {
   contain: "strict"
 };
 
+export enum Direction {
+  Up,
+  Down
+}
+
 export class VirtualList extends React.Component<
   VirtualListProps,
   VirtualListState
-> {
+  > {
   readonly state: VirtualListState = {
     data: [],
     scrollHeight: 0
   };
 
+  private readonly defaultPreload = 5;
   private virtualListRef = React.createRef<HTMLDivElement>();
   private containerHeight$ = new BehaviorSubject<number>(0);
   private sub = new Subscription();
-  private lastFirstIndex = -1;
-  private stateDataSnapshot: any[] = [];
+  private dataSlice: (DataItem | null)[] = [];
+
+  private rowTops$ = new BehaviorSubject<number[]>([]);
+  private resize$ = new Subject<[number, number]>()
 
   componentDidMount() {
     const container = this.virtualListRef.current as HTMLElement;
-    this.containerHeight$.next(container.clientHeight);
 
-    const actualRows$ = combineLatest(
-      this.containerHeight$,
-      this.props.options$
-    ).pipe(map(([ch, option]) => Math.ceil(ch / option.height) + 3));
-
-    // const dataInViewSlice$ = combineLatest(this.props.data$, actualRows$).pipe(
-    //   map(([data, actualRows]) => data.slice(0, actualRows))
-    // );
-
-    // this.sub.add(dataInViewSlice$.subscribe(data => this.setState({ data })));
-
-    const scrollHeight$ = combineLatest(
+    this.sub.add(combineLatest(
       this.props.data$,
-      this.props.options$
-    ).pipe(map(([data, { height }]) => data.length * height));
+      this.props.options$,
+    ).pipe(
+      // append a extra row to calculate the scroll height later.
+      map(([data, { height }]) => Array.from({ length: 1 + data.length }, (_, i) => i * height))
+    ).subscribe(rows => this.rowTops$.next(rows)));
 
-    scrollHeight$.subscribe(height => this.setState({ scrollHeight: height }));
+    const scrollHeight$ = this.rowTops$.pipe(map(tops => tops[tops.length - 1] ?? 0));
+
+    this.sub.add(scrollHeight$.subscribe(height => this.setState({ scrollHeight: height })));
 
     const scrollWin$ = fromEvent(container, "scroll").pipe(
       map(event => (event.target as any).scrollTop),
       startWith(0)
     );
 
-    const scrollDirection$ = scrollWin$.pipe(
-      pairwise(),
-      map(([prev, next]) => (next > prev ? 1 : -1)),
-      startWith(1)
-    );
+    // const scrollDirection$ = scrollWin$.pipe(
+    //   pairwise(),
+    //   map(([prev, next]) => (next > prev ? Direction.Down : Direction.Up)),
+    //   startWith(Direction.Down)
+    // );
 
-    const shouldUpdate$ = combineLatest(
+    const sliceBorder$ = combineLatest(
       scrollWin$,
-      this.props.data$,
-      this.props.options$,
-      actualRows$
+      this.rowTops$,
+      this.containerHeight$
     ).pipe(
-      map(([top, data, { height }, actualRows]) => {
-        const firstIndex = Math.floor(top / height);
-        const maxIndex =
-          data.length < actualRows ? 0 : data.length - actualRows;
-        return [Math.min(firstIndex, maxIndex), actualRows];
+      withLatestFrom(this.props.options$),
+      map(([[top, tops, containerHeight], options]) => {
+        const preload = options.preload || this.defaultPreload;
+        const firstIndex = indexOfLessOrEqual(top, tops);
+        let maxIndex = getMaxIndex(containerHeight, tops) - preload;
+        if (maxIndex < 0) maxIndex = 0;
+        if (maxIndex <= firstIndex) return [maxIndex, tops.length - 2] as const;
+        const lastIndex = indexOfLessOrEqual(top + containerHeight, tops) + preload;
+        return [firstIndex, lastIndex] as const;
       }),
-      filter(([curIndex]) => curIndex !== this.lastFirstIndex),
-      tap(([curIndex]) => (this.lastFirstIndex = curIndex)),
-      map(([firstIndex, actualRows]) => [
-        firstIndex,
-        firstIndex + actualRows - 1
-      ])
+      distinctUntilChanged((x, y) => x[0] === y[0] && x[1] === y[1])
     );
 
     const dataInViewSlice$ = combineLatest(
       this.props.data$,
-      this.props.options$,
-      shouldUpdate$
+      sliceBorder$,
+      this.rowTops$
     ).pipe(
-      withLatestFrom(scrollDirection$),
-      map(([[data, { height }, [firstIndex, lastIndex]], dir]) => {
-        const dataSlice = this.stateDataSnapshot;
-
-        if (!dataSlice.length) {
-           this.stateDataSnapshot = data
+      map(([data, [firstIndex, lastIndex], tops]) => {
+        if (!this.dataSlice.length) {
+          this.dataSlice = data
             .slice(firstIndex, lastIndex + 1)
             .map((item, index) => ({
               origin: item,
-              $pos: (firstIndex + index) * height,
+              $pos: tops[firstIndex + index],
               $index: firstIndex + index
             }));
-          return this.stateDataSnapshot;
+          return this.dataSlice;
         }
 
         // 获得超出窗口的item下标
-        const diffSliceIndexes = this.getDifferenceIndexes(
-          dataSlice,
-          firstIndex,
-          lastIndex
-        );
-        //向上补元素还是向下补元素
-        let newIndex =
-          dir > 0 ? lastIndex - diffSliceIndexes.length + 1 : firstIndex;
+        const [adds, dels] = indexDiff(this.dataSlice, firstIndex, lastIndex);
 
         // 将超出下标的item的值替换成进入下标的元素
-        diffSliceIndexes.forEach(index => {
-          const item = dataSlice[index];
-          item.origin = data[newIndex];
-          item.$pos = newIndex * height;
-          item.$index = newIndex++;
-        });
+        let addIndex = 0;
+        let delIndex = 0;
+        while (addIndex < adds.length && delIndex < dels.length) {
+          const index = dels[delIndex++];
+          const $index = adds[addIndex++]
+          const item = this.dataSlice[index];
+          if (item) {
+            item.$index = $index;
+            item.origin = data[item.$index];
+          } else {
+            this.dataSlice[index] = {
+              $index,
+              $pos: 0, // will correct soon
+              origin: data[$index]
+            }
+          }
+        }
 
-        return (this.stateDataSnapshot = dataSlice);
-      })
+        for (let i = delIndex; i < dels.length; i++) {
+          this.dataSlice[dels[i]] = null;
+        }
+
+        for (let i = addIndex; i < adds.length; i++) {
+          this.dataSlice.push({
+            $index: adds[i],
+            origin: data[adds[i]],
+            $pos: 0 // will correct soon
+          });
+        }
+
+        for (const item of this.dataSlice) {
+          if (item) {
+            item.$pos = tops[item.$index]
+          }
+        }
+
+        return this.dataSlice
+      }),
     );
+
+    this.sub.add(this.resize$.pipe(
+      bufferTime(500),
+      filter(calls => calls.length > 0),
+      map(calls => calls.sort((x, y) => x[0] - y[0])),
+      withLatestFrom(this.rowTops$),
+    ).subscribe(([calls, tops]) => {
+      let callIndex = 0;
+      let delta = 0;
+      for (let i = calls[0][0]; i < tops.length; i++) {
+        tops[i] += delta;
+        if (i + 1 === tops.length) break;
+        if (callIndex < calls.length && i === calls[callIndex][0]) {
+          delta += calls[callIndex][1] - tops[i + 1] + tops[i] - delta;
+          callIndex++;
+        }
+      }
+      this.rowTops$.next(tops);
+    }));
 
     this.sub.add(
       combineLatest(dataInViewSlice$, scrollHeight$).subscribe(
-        ([data, scrollHeight]) => this.setState({ data, scrollHeight })
+        ([data, scrollHeight]) => this.setState({
+          data,
+          scrollHeight
+        })
       )
     );
   }
 
-  private getDifferenceIndexes(
-    slice: any[],
-    firstIndex: number,
-    lastIndex: number
-  ): number[] {
-    const indexes: number[] = [];
 
-    slice.forEach((item, i) => {
-      if (item.$index < firstIndex || item.$index > lastIndex) {
-        indexes.push(i);
-      }
-    });
 
-    return indexes;
+  private onContainerResize = (rect: DOMRect) => {
+    this.containerHeight$.next(rect.height);
+  }
+
+  private onItemResize = (rect: DOMRect, index: number) => {
+    this.resize$.next([index, rect.height]);
   }
 
   render() {
     return (
-      <div ref={this.virtualListRef} style={styles}>
-        <div
-          style={{
-            position: "absolute",
-            height: "1px",
-            width: "100%",
-            transform: `translate(0px, ${this.state.scrollHeight}px)`
-          }}
-        />
-        {this.state.data.map((item, i) => (
+      <Resize onResize={this.onContainerResize}>
+        <div ref={this.virtualListRef} style={style}>
           <div
-            key={i}
             style={{
               position: "absolute",
+              height: "1px",
               width: "100%",
-              transform: `translateY(${item.$pos}px)`,
+              transform: `translate(0px, ${this.state.scrollHeight}px)`
             }}
-          >
-            {item.origin}
-          </div>
-        ))}
-      </div>
+          />
+          {this.state.data.map((item, i) => item && (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                width: "100%",
+                willChange: 'height',
+                transform: `translateY(${item.$pos}px)`,
+              }}
+            >
+              <Resize key={item.$index} onResize={rect => this.onItemResize(rect, item.$index)}>
+                {item.origin}
+              </Resize>
+            </div>
+          ))}
+        </div>
+      </Resize>
     );
   }
 }

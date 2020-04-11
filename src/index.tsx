@@ -5,9 +5,9 @@ import { VirtualList } from "./VirtualList";
 import "./styles.css";
 import { of } from "rxjs";
 import { ListItem } from "./ListItem";
-import { IDLE_ITEM_HEIGHT } from "./util";
+import { IDLE_ITEM_HEIGHT, getRandomHeight } from "./util";
 
-const data$ = of(Array.from({ length: 8000 }, (_, i) => <ListItem key={i} index={i} />));
+const data$ = of(Array.from({ length: 5000 }, (_, i) => <ListItem key={i} index={i} height={getRandomHeight()} />));
 const options$ = of({ height: IDLE_ITEM_HEIGHT });
 
 
@@ -17,9 +17,9 @@ function App() {
       <div
         style={{
           width: "60vw",
-          height: 500,
+          height: '60vh',
           border: "1px solid #eee",
-          margin: "20px auto"
+          margin: "20vh auto"
         }}
       >
         <VirtualList data$={data$} options$={options$} />
