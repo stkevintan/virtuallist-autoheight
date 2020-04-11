@@ -165,19 +165,24 @@ export class VirtualList extends React.Component<
     );
 
     this.sub.add(this.resizeCall$.pipe(
-      bufferTime(500),
+      bufferTime(200),
       filter(calls => calls.length > 0),
-      map(calls => calls.sort((x, y) => x[0] - y[0])),
+      map(calls => calls.reduce((rec, call) => {
+        rec[call[0]] = call[1];
+        return rec;
+      }, {} as Record<number, number>)
+      ),
       withLatestFrom(this.rowTops$),
-    ).subscribe(([calls, tops]) => {
-      let callIndex = 0;
+    ).subscribe(([rec, tops]) => {
+      const keys = Object.keys(rec).map(i => +i).sort();
+      let keyIndex = 0;
       let delta = 0;
-      for (let i = calls[0][0]; i < tops.length; i++) {
+      for (let i = keys[0]; i < tops.length; i++) {
         tops[i] += delta;
         if (i + 1 === tops.length) break;
-        if (callIndex < calls.length && i === calls[callIndex][0]) {
-          delta = calls[callIndex][1] - tops[i + 1] + tops[i];
-          callIndex++;
+        if (keyIndex < keys.length && i === keys[keyIndex]) {
+          delta = rec[keys[keyIndex]] - tops[i + 1] + tops[i];
+          keyIndex++;
         }
       }
       this.rowTops$.next(tops);
@@ -196,7 +201,7 @@ export class VirtualList extends React.Component<
   componentWillUnmount() {
     this.sub.unsubscribe();
   }
-  
+
 
 
 
