@@ -5,7 +5,7 @@ export interface DataItem {
     $pos: number;
 }
 
-export const IDLE_ITEM_HEIGHT = 180;
+export const IDLE_ITEM_HEIGHT = 250;
 
 export const getRandomHeight = (t = 50) => {
     const eps = Math.random() * t -  t >> 1;

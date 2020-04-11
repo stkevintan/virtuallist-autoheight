@@ -28,6 +28,16 @@
   padding: 5px;
 }
 
+
+.visual-list-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden auto;
+  transform: translateY(0px);
+  contain: strict;
+}
+
 .visual-list-marker {
   position: absolute;
   height: 1px;

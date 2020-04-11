@@ -35,14 +35,6 @@ interface VirtualListState {
   scrollHeight: number;
 }
 
-const style: React.CSSProperties = {
-  position: "relative",
-  height: "100%",
-  width: "100%",
-  overflow: "hidden auto",
-  transform: "translateY(0px)",
-  contain: "strict"
-};
 
 export enum Direction {
   Up,
@@ -219,7 +211,7 @@ export class VirtualList extends React.Component<
   render() {
     return (
       <Resize onResize={this.onContainerResize}>
-        <div ref={this.virtualListRef} style={style}>
+        <div ref={this.virtualListRef} className='visual-list-container'>
           <div
             className="visual-list-marker"
             style={{

@@ -41,9 +41,9 @@ export const ListItem: React.FC<IListItemProps> = ({ index, height: pHeight }) =
                 setHeight(height);
             }} type="number" />
         </label>
-        <div style={{flex: '1 1 auto', overflow: 'hidden'}}>
+        <div style={{ flex: '1 1 auto', overflow: 'hidden', border: '1px solid #ccc'}}>
             <Editor 
-            theme="dark" 
+            theme="light" 
             language="typescript" 
             value={value} 
             options={{
