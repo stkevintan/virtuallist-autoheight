@@ -32,7 +32,7 @@ export const ListItem: React.FC<IListItemProps> = ({ index, height: pHeight }) =
     const [height, setHeight] = React.useState(heightCache[index] || pHeight);
     const value = React.useMemo(() => code(), []);
     return (<div style={{ height: height }} className="list-item">
-        <div className="list-item-header"># Editor : {index}</div>
+        <div className="list-item-header"># Editor : {index + 1}</div>
         <label style={{ display: 'flex',alignItems:'center', marginBottom: 10 }}>
             <small>Change the row height: &nbsp;</small>
             <input value={height} onChange={e => {

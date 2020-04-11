@@ -176,7 +176,7 @@ export class VirtualList extends React.Component<
         tops[i] += delta;
         if (i + 1 === tops.length) break;
         if (callIndex < calls.length && i === calls[callIndex][0]) {
-          delta += calls[callIndex][1] - tops[i + 1] + tops[i] - delta;
+          delta = calls[callIndex][1] - tops[i + 1] + tops[i];
           callIndex++;
         }
       }
