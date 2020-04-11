@@ -16,10 +16,10 @@ function App() {
     <div className="App">
       <div
         style={{
-          width: "60vw",
-          height: '60vh',
+          width: "80vw",
+          height: '70vh',
           border: "1px solid #eee",
-          margin: "20vh auto"
+          margin: "10vh auto"
         }}
       >
         <VirtualList data$={data$} options$={options$} />
